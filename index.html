@@ -3,42 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gastos Casa</title>
+    <title>Gastos Casa - Mensual</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f4f4f9; padding: 20px; display: flex; justify-content: center; }
-        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 100%; max-width: 900px; position: relative; }
-        h2 { text-align: center; color: #2c3e50; border-bottom: 3px solid #27ae60; padding-bottom: 10px; margin-top: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th { background-color: #2c3e50; color: white; padding: 12px; text-align: left; }
-        td { padding: 10px; border-bottom: 1px solid #eee; }
-        input { width: 110px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; text-align: right; font-size: 14px; background-color: #fff9e6; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; padding: 10px; display: flex; justify-content: center; }
+        .container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 100%; max-width: 900px; }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+        
+        /* Estilo de Pestañas */
+        .tabs { display: flex; overflow-x: auto; gap: 5px; margin-bottom: 20px; padding-bottom: 5px; border-bottom: 2px solid #ddd; }
+        .tab-btn { padding: 10px 15px; border: none; background: #e0e0e0; cursor: pointer; border-radius: 5px 5px 0 0; font-weight: bold; white-space: nowrap; }
+        .tab-btn.active { background: #27ae60; color: white; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th { background-color: #2c3e50; color: white; padding: 10px; text-align: left; }
+        td { padding: 8px; border-bottom: 1px solid #eee; }
+        input { width: 85px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: right; }
         .res-val { font-weight: bold; text-align: right; color: #34495e; }
-        .total-row { background-color: #e8f5e9; font-weight: bold; font-size: 1.1em; border-top: 2px solid #27ae60; }
-        .name-header { color: #27ae60; }
-        .status-save { position: absolute; top: 10px; right: 20px; font-size: 12px; color: #27ae60; display: none; }
-        .btn-clear { margin-top: 20px; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; float: right; }
+        .total-row { background-color: #e8f5e9; font-weight: bold; border-top: 2px solid #27ae60; }
+        .btn-ws { background-color: #25d366; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; font-size: 16px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <span id="save-msg" class="status-save">✔ Guardado</span>
     <h2>🏠 Gastos Casa</h2>
     
+    <div class="tabs" id="month-tabs"></div>
+
     <table>
         <thead>
             <tr>
                 <th>Concepto</th>
-                <th>Importe Total ($)</th>
-                <th class="name-header">JLRG</th>
-                <th class="name-header">Baby</th>
-                <th class="name-header">Joe</th>
+                <th>Total ($)</th>
+                <th style="color: #27ae60;">JLRG</th>
+                <th style="color: #27ae60;">Baby</th>
+                <th style="color: #27ae60;">Joe</th>
             </tr>
         </thead>
         <tbody id="tabla-cuerpo"></tbody>
         <tfoot>
             <tr class="total-row">
-                <td>TOTAL A PAGAR</td>
+                <td>TOTAL <span id="mes-label"></span></td>
                 <td id="gran-total" style="text-align: right;">$0.00</td>
                 <td id="total-jlrg" style="text-align: right;">$0.00</td>
                 <td id="total-baby" style="text-align: right;">$0.00</td>
@@ -46,41 +51,51 @@
             </tr>
         </tfoot>
     </table>
-    <button class="btn-clear" onclick="limpiarTodo()">Borrar todo el mes</button>
+
+    <button class="btn-ws" onclick="enviarWhatsApp()">📲 Enviar Resumen de <span id="mes-ws"></span></button>
 </div>
 
 <script>
-    const conceptos = [
+    const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    let mesActual = meses[new Date().getMonth()]; // Inicia en el mes actual real
+
+    const conceptosBase = [
         { id: 'renta', nombre: 'Renta', inicial: 35000 },
         { id: 'agua', nombre: 'Agua', inicial: 0 },
         { id: 'luz', nombre: 'Luz', inicial: 0 },
         { id: 'gas', nombre: 'Gas', inicial: 0 },
         { id: 'izzy', nombre: 'Izzy', inicial: 648 },
-        { id: 'heb', nombre: 'HEB', inicial: 5000 },
+        { id: 'heb', nombre: 'HEB', inicial: 0 },
         { id: 'costco', nombre: 'Costco', inicial: 0 },
         { id: 'mela', nombre: 'Melaleuca', inicial: 1700 },
         { id: 'martha', nombre: 'Martha', inicial: 2000 },
         { id: 'varios', nombre: 'Varios', inicial: 0 }
     ];
 
-    function format(n) {
-        return '$' + n.toLocaleString('es-MX', {minimumFractionDigits: 2});
+    function format(n) { return '$' + n.toLocaleString('es-MX', {minimumFractionDigits: 2}); }
+
+    function cambiarMes(mes) {
+        mesActual = mes;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('btn-' + mes).classList.add('active');
+        document.getElementById('mes-label').innerText = mes;
+        document.getElementById('mes-ws').innerText = mes;
+        cargarDatosMes();
     }
 
     function calcular() {
         let totalGral = 0, tJLRG = 0, tBaby = 0, tJoe = 0;
-        const savedData = {};
+        const dataMes = {};
 
-        conceptos.forEach((c, i) => {
+        conceptosBase.forEach((c, i) => {
             const val = parseFloat(document.getElementById(`in-${i}`).value) || 0;
-            savedData[`in-${i}`] = val; // Guardamos para el localstorage
-
+            dataMes[`in-${i}`] = val;
             let pJLRG, pBaby, pJoe;
+
             if (c.id === 'renta') {
                 pJLRG = 15000;
-                const remanente = val - 15000;
-                pBaby = remanente / 2;
-                pJoe = remanente / 2;
+                const rem = val - 15000;
+                pBaby = rem / 2; pJoe = rem / 2;
             } else {
                 pJLRG = val / 3; pBaby = val / 3; pJoe = val / 3;
             }
@@ -96,44 +111,42 @@
         document.getElementById('total-jlrg').innerText = format(tJLRG);
         document.getElementById('total-baby').innerText = format(tBaby);
         document.getElementById('total-joe').innerText = format(tJoe);
-
-        // Guardar en la memoria del navegador
-        localStorage.setItem('gastosCasaData', JSON.stringify(savedData));
-        mostrarAviso();
+        
+        // Guardar datos específicos de este mes
+        localStorage.setItem('gastos_' + mesActual, JSON.stringify(dataMes));
     }
 
-    function mostrarAviso() {
-        const msg = document.getElementById('save-msg');
-        msg.style.display = 'block';
-        setTimeout(() => { msg.style.display = 'none'; }, 1000);
+    function cargarDatosMes() {
+        const cuerpo = document.getElementById('tabla-cuerpo');
+        cuerpo.innerHTML = '';
+        const recuperados = JSON.parse(localStorage.getItem('gastos_' + mesActual)) || {};
+
+        conceptosBase.forEach((c, i) => {
+            const val = recuperados[`in-${i}`] !== undefined ? recuperados[`in-${i}`] : c.inicial;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${c.nombre}</td><td><input type="number" id="in-${i}" value="${val}" oninput="calcular()"></td><td id="r1-${i}" class="res-val"></td><td id="r2-${i}" class="res-val"></td><td id="r3-${i}" class="res-val"></td>`;
+            cuerpo.appendChild(tr);
+        });
+        calcular();
     }
 
-    function limpiarTodo() {
-        if(confirm("¿Seguro que quieres borrar todos los datos del mes?")) {
-            localStorage.removeItem('gastosCasaData');
-            location.reload();
-        }
+    function enviarWhatsApp() {
+        const texto = `🏠 *Resumen Gastos Casa - ${mesActual}*%0A%0A*Total:* ${document.getElementById('gran-total').innerText}%0A-----------------------%0A👤 *JLRG:* ${document.getElementById('total-jlrg').innerText}%0A👤 *Baby:* ${document.getElementById('total-baby').innerText}%0A👤 *Joe:* ${document.getElementById('total-joe').innerText}`;
+        window.open(`https://wa.me/?text=${texto}`, '_blank');
     }
 
-    // Cargar datos al iniciar
-    const cuerpo = document.getElementById('tabla-cuerpo');
-    const datosRecuperados = JSON.parse(localStorage.getItem('gastosCasaData')) || {};
-
-    conceptos.forEach((c, i) => {
-        const valorFinal = datosRecuperados[`in-${i}`] !== undefined ? datosRecuperados[`in-${i}`] : c.inicial;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${c.nombre}</td>
-            <td><input type="number" id="in-${i}" value="${valorFinal}" oninput="calcular()"></td>
-            <td id="r1-${i}" class="res-val"></td>
-            <td id="r2-${i}" class="res-val"></td>
-            <td id="r3-${i}" class="res-val"></td>
-        `;
-        cuerpo.appendChild(tr);
+    // Inicializar pestañas
+    const tabsContainer = document.getElementById('month-tabs');
+    meses.forEach(m => {
+        const btn = document.createElement('button');
+        btn.id = 'btn-' + m;
+        btn.className = 'tab-btn';
+        btn.innerText = m;
+        btn.onclick = () => cambiarMes(m);
+        tabsContainer.appendChild(btn);
     });
 
-    calcular();
+    cambiarMes(mesActual);
 </script>
-
 </body>
 </html>
